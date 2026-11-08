@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Kitchen Life</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:none}
+html,body{margin:0;height:100%;background:#0b0907;overflow:hidden;font-family:system-ui,sans-serif;color:#fff;user-select:none;-webkit-user-select:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#load{position:fixed;inset:0;z-index:20;background:radial-gradient(circle at 50% 40%,#3a2a1c,#0b0907);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .6s}
+#load h1{margin:0;font-size:28px;letter-spacing:3px}
+#load small{opacity:.75}
+.bar{width:min(320px,70vw);height:10px;border-radius:6px;background:#ffffff22;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffb347,#ff7e3a);transition:width .2s}
+#joy{position:fixed;left:max(24px,env(safe-area-inset-left));bottom:max(24px,env(safe-area-inset-bottom));width:140px;height:140px;border-radius:50%;background:#ffffff18;border:2px solid #ffffff44;z-index:5;display:none}
+#joy i{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px;border-radius:50%;background:#ffffffaa;box-shadow:0 2px 10px #0006}
+#hud{position:fixed;top:10px;left:12px;z-index:5;font-size:13px;opacity:.85;text-shadow:0 1px 3px #000}
+#lt{position:fixed;top:8px;right:10px;z-index:5;display:flex;gap:6px}
+#act{position:fixed;right:max(24px,env(safe-area-inset-right));bottom:max(36px,env(safe-area-inset-bottom));z-index:6;display:none;padding:14px 22px;border-radius:30px;border:2px solid #ffffffaa;background:#ff7e3acc;color:#fff;font-size:16px;font-weight:700;box-shadow:0 3px 14px #0008}
+#pp{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:6;display:none;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:92vw}
+#pp button{padding:12px 16px;border-radius:26px;border:2px solid #ffffffaa;background:#00000099;color:#fff;font-size:16px;font-weight:700}
+#pp #pok{background:#2fb76acc}#phint{width:100%;text-align:center;font-size:12px;opacity:.85;text-shadow:0 1px 3px #000}
+#bub{position:fixed;z-index:7;display:none;transform:translate(-50%,-100%);max-width:220px;padding:8px 12px;border-radius:14px;background:#fffffff0;color:#222;font-size:13px;pointer-events:none}
+#ai{position:fixed;left:max(12px,env(safe-area-inset-left));top:44px;z-index:8;display:none;width:min(330px,86vw);padding:10px;border-radius:14px;background:#000000b8;border:1px solid #ffffff44;touch-action:auto}
+#ai *{touch-action:auto}#ai .tg{display:flex;gap:6px;margin-bottom:8px}#ai .tg button{flex:1;padding:7px;border-radius:16px;border:1px solid #ffffff55;background:#ffffff14;color:#fff}#ai .tg button.on{background:#ff7e3a}
+#ailog{height:96px;overflow:auto;font-size:12px;line-height:1.35;margin-bottom:8px;opacity:.95}#ai .row{display:flex;gap:6px}#aiin{flex:1;padding:9px;border-radius:10px;border:0;font-size:16px;user-select:text;-webkit-user-select:text}
+#aigo{padding:9px 14px;border-radius:10px;border:0;background:#2fb76a;color:#fff;font-weight:700}.au{display:block;margin-top:8px;font-size:12px;opacity:.9}
+#cred{position:fixed;inset:0;z-index:30;background:#000c;display:none;padding:24px;overflow:auto;font-size:13px;line-height:1.5}
+#cred h3{margin:0 0 10px}#cred a{color:#ffb347}#cred button{margin-top:14px;padding:8px 18px;border-radius:20px;border:0}
+#lt button{width:38px;height:38px;border-radius:50%;border:1px solid #ffffff55;background:#00000066;color:#fff;font-size:18px}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head><body>
+<div id="load"><h1>KITCHEN LIFE</h1><div class="bar"><i id="bar"></i></div><small id="msg">Loading…</small></div>
+<div id="hud">WASD / joystick to walk · drag to look · Shift to run</div>
+<div id="lt"><button id="ab">🤖</button><button id="ci">ⓘ</button><button id="lm">☀−</button><button id="lp">☀+</button></div>
+<div id="joy"><i></i></div>
+<button id="act"></button>
+<div id="pp"><button id="prl">⟲</button><button id="prr">⟳</button><button id="pok">✔ Put down here</button><button id="pcancel">✖</button><div id="phint">Drag the screen to move it · walk to reach further</div></div>
+<div id="cred"></div>
+<div id="bub"></div>
+<div id="ai"><div class="tg"><button data-t="chef" class="on">AI Chef</button><button data-t="me">Me</button></div>
+<div id="ailog"></div>
+<div class="row"><input id="aiin" maxlength="200" placeholder="Tell the AI what to do…" autocomplete="off"><button id="aigo">Send</button></div>
+<label class="au"><input type="checkbox" id="aiauto"> Auto chef (acts on its own)</label></div>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+const ASSET_BASE = 'https://errorbackgame.floot.app';
+const KITCHEN_URL = ASSET_BASE + '/_cdn/static/d4d85ec4-b7ce-4836-a65f-9fd507cfea89-kitchen_hand_painted.glb';
+const CHAR_URL = ASSET_BASE + '/_cdn/static/dcd6070e-2e0f-4f04-8341-cca2be469e7e-Standing-W_Briefcase-Idle.fbx';
+const KW_URL = ASSET_BASE + '/_cdn/static/949e843b-ef78-4441-9cd7-a79df5c84aa3-kitchenware.glb';
+const SPOTS = [{"x": -0.15, "z": 0.3, "y": 1.024}, {"x": -1.35, "z": 0.4, "y": 1.009}, {"x": -3.35, "z": 0.1, "y": 1.07}, {"x": -0.15, "z": -2.0, "y": 1.105}, {"x": -2.65, "z": -2.1, "y": 1.069}, {"x": -1.65, "z": -2.0, "y": 1.077}, {"x": -0.85, "z": -0.5, "y": 1.028}, {"x": -0.65, "z": 1.2, "y": 1.025}];
+const HMAP = {"W": 85, "H": 74, "d": "//////////////////////////////////////////////////////////////////////////////////////////////////8AAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////8AAAAAAP////////////////////////////////////////////////////////////////////////////////////////////////////////8AAAAAAAAA//////////////////////////////////////////////////////////////////////////////////////////////////////8AAAAAAAAAAAD///////////////////////////////////////////////////////////////////////////////////////////////////8AAAAAAAAAAAAAAP////////////////////////////////////////////////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAA//////////////////////////////////////////////////////////////8mKysrKyUqKioq//////////////////8AAAAAAAAAAAAAAAAAAAD/////////////////////////////////////////////////////////////JiYmJiUlJSUlJf////////////////8AAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////yYmJiUlJSUlJSX///////////////8AAAAAAAAAAAAAAAAAAAAAAAD/////hoaGhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSEhISEhISEhIRtg4ODg2xsJiYlJSUlJSUlDw8PDw8PDw8PDw8AAAAAAAAAAAAAAAAAAAAAAAD//////4ZtbW1tbW1tbW19fWxsbGxsbGxsbGxsbGxsbGyEhISEhIRsb4ODg4OBbAAAAAAAAAAAAAAAAAAAAAAAAAAPDwAAAAAAAAAAAAAAAAAAAAD///////+GbWtra2tra2trfX19a2treHhra2tra2pqampqampqampqbGyDg4ODbGwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////hm1ra2tra2tra319fWtra3hriIKCa2xsbGxsbGuLi2pqamxsdHRsbGxrAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////4Zta2tra2tra2tra2trbW1tbW2Ia2tsbGxsbGxri4pqaoqKdHN0dGxsawAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////////+GbXNzc3Nzc2tra2trbW1tbW1tbWtrbGxsbGx1a2tqamqLi3R0dHRsbGsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////////hm1ra2tra3N7a2tra21tbW1tbW1ra2xra2t9h3Zrampqamxsb29vb2xrAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////////4Zta2tra2tra2tra2trbW1tbW1ta2psa2trhodra2pqampsbG9ubm5vawAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////////////+GbWtra2tra2tra2tra2tra2tra2tqbGxsbINra2tqampqbGxvbm1ub2sAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////////////hW2CgoJra2tra2tra2tra2tra2trampqampqampqampqamxsb29ub29rAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7//////////////4OGhoaGgoKCa2tra2sAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABsbGxvb29rawAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO//////////////+KioaGhoKCgmtra2trAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEhISEv//////////iomGhoZtd3d3dGtrawAA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ZWdnZ2dnZ2ZmZmZmZgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABISEhL//////////4mJh4dra2tra2tra2sAAAAAAAAAAAAAAGdnZ2dnZ2dnZ2dnZ2dmZmZmZmYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASEhIS//////////+JiYaGa2tra2tra2trAAAAAAAAAAAAAABnZ2dnZ2dnZ2dnZ2dmZmZmZmZmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEhISEv////////////8RbGtra2tra2trawAAAAAAAAAAAAAAZ2dnZ2dnZ2dnZ2dnZmZmZmZmZgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABISEhL/////////////EWxra2tra2tra2sAAAAAAAAAAAAAAGdnZ2dnZ2dnZ2dnZ2ZmZmZmZmYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASEhIS/////////////xFsa2tra2tra2trAAAAAAAAAAAAAABnZ2dnZ2dnZ2dnZ2dmZmZmZmZmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEhISEv////////////8RbGxra2tra2trawAAAAAAAAAAAAAAZ2dnZ2dnZ2dnZ2dnZmZmZmZmZgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABISEhL/////////////EWxsbGxsbGxsbGwAAAAAAAAAAAAAAGdnZ2dnZ2dnZ2dnZmZmZmZmZmYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASEhIS/////////////xERAQEBAQEBAQEBAAAAAAAAAAAAAABnZ2dnZ2dnZ2dnZ2ZmZmZmZmZmAAAAAAAAAAAAAAAAAAAAAAAAMDAwMDAwMDAAAAAADv////////////////8REQEBAQEBAQEBAQEBAAAAAAAAAAAAADMzMwAAAAAzMzMzMwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDAwMDAwAAAAAA7/////////////////EREBAQEBAQEBAQEBAQEAAAAAAAAAADMzMzMzAAAAMzMzMzMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwMDAwMDAwLwAAAAAO/////////////////xERAQEBAQEBAQEBAQEBAQAAAAAAAAAzMzMzMwAAAAAzMzMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDAwMDAwMC8AAAAADv////////////////8REQEBAQEBAQEBAQEBAQEBAAAAAAAAMzMzMzMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDAwMDAvAAAAAA7/////////////////EREBAQEBAQEBAQGMAQEBAQEAAAAAAAAzMzMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwMDAwMDAwLwAAAAAO/////////////////xERAQEBAQEBAQEBigEBAQEBAQEAAAAAAAAAAAAAAAAAigAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDAwMDAwLy8AAAAADv////////////////8REQEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAAAAAAAAiYmIhgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDAwMC8vAAAAAA7/////////////////EREBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAAAAhoaGhoWFgVMAAAAAAAAAAAAAAAAAAAAAAAAAAAAwMDAwMDAvLwAAAAAO/////////////////xERAQEBAQEBAQEBAQEBAQEBAQEBAQEAAAAAAAAAh4WEhISAgH99VgCGAAAAAAAAAAAAAAAAAAAAAAAAMDAwMDAwLy8AAAAADv////////////////8RSUlJSQEBAQEBAQEBAQEBAQEBAQEBAQAAAAAAAIuJhYFofHt7cFeKiQAAAAAAAAAAAAAAAAAAAAAAADAwMDAwLy8vAAAAAA7/////////////////EUlKSUkBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAACMi4eCb3d3cFRVi4kAAAAAAAAAAAAAAAAAAAAAAAAwMDAwMC8vLwAAAAAO/////////////////xFJSklJAQEBAQEBAQEBAQEBAQEBAQEBAQEAAAAAAIyKcXJyAABSAACHh4VfAAAAAAAAAAAAAAAAAAAAMDAwMDAvLy8AAAAADv////////////////8RSUlJSQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAACLiwBzcycnJyeChomIhAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7/////////////////EQICAgIBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAnISEngoeKiVcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO/////////////////xECAgICAgEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAJyEhISeIV4iJUwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADv////////////////8RAgICAgICAgEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAAAAACcnJycnAGmGiYkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7/////////////////EQICAgICAgIBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAAAACcAAACChIaIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO/////////////////xEREREREBAQEBAQEBAQEBAQEBAQEBAQEBAQEA8PDw8PDw8PDw8PDw8PgYqFhg8PDw8OAAAAAAAAAAAAAAAAAAAAAAAAAAAADv//////////////////////////////////////////////////EBAPDw8PDx0dHR0dHR2HiIqKgxwPDw8PDg4ODg4ODg5xcG8AAAAAAAAADg4ODg7///////////////////////////////////////////////////////////8dHR0dHR0dh4iKih0c//////////////9xeYSEhISEhIODIQD/////////////////////////////////////////////////////////////////iIiHh4eHh4iJioqHh///////////////AHl5eXl5eXl5eQAA/////////////////////////////////////////////////////////////////4iIh4eHh4eIiYqHh4f///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8="};                    // free counter-top spots (metres)
+const ORDER = ['pot','pan','board','bowl','ladle','spatula','knife'];
+const NICE = {pot:'cooking pot', pan:'frying pan', board:'cutting board', bowl:'bowl', ladle:'soup ladle', spatula:'spatula', knife:'knife'};
+const CLIPS = ['idle','walk','run'];
+const GRID = {"W": 85, "H": 74, "free": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAOAAAAAAAAAAAAAPgAAAAAAAAAAAAP4AAAAAAAAAAAAP8AAAAAAAAAAAAP8AAAAAAAAAAAAP8AAAAAAAAAAAAP8AAAAAAAAAAAAP8AAAAAAAAAf/8P8AAAAAAAAAP///8AAAAAAAAAH///4AAAAAAAAAD///4AAAAAAAAAB///4AAAAAAAAAA///8AAAAAAAAAAf//+AAAAAAAAAAP///AAAAAAAAAAP///gAAAAP4AAAP///wAAAAH////////4AAAAD////////8AAAAB////////+AAAAA/gAAB////AAAAAfgAAAf///gAAAAPgAAAH///wAAAAHwAAAD///4AAAAD4AAAB///8AAAAB8AAAA///+AAAAA+AAAAf///AAAAAfAAAAP///gAAAAPgAAAH///wAAAAHwAAAD///4AAAAD4AAAB///8AAAAB8AAAA///+AAAAA+AAAAf///AAAAAfAAAAP///gAAAAPgAAAH///wAAAAHwAAAD///4AAAAD4AAAB///8AAAAB8AAAA///+AAAAA+AAAAf///AAAAAfAAAAP///gAAAAPgAAAH///wAAAAHwAAAD/+AAAAAAB4AAAB/+AAAAAAA8AAAA/+AAAAAAAeAAAAf/AAAAAAAPAAAAP/gAAAAAAHgAAAP/wAAAAAADwAAAP/4AAAAAAB4AAH//8AAAAAAA8AAA//+AAAAAAAfAAAP//AAAAAAAHwAAA//gAAAAAAD8AAAP/wAAAAAAB/8AAD/4AAAAAAA/+AAA/8AAAAAAA//gAAP+AAAAAAA//4AAD/AAAAAAf//8AAB/gAAAAAP//+AAA/4AAAAAAAAHAAAf+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==", "inside": "AAAAAAAAAAAAOAAAAAAAAAAAAAPgAAAAAAAAAAAAP4AAAAAAAAAAAAP+AAAAAAAAAAAAP/gAAAAAAAAAAAP/4AAAAAAAP/AAP/+AAAAAAAH/gAP//gAAAAAAD/wAP//w/////////////wf////////////wP////////////wH////////////wD////////////wB////////////wA////////////wAf///////////wAP///////////wAH///////////wAD///////////4AB////////////gA////////////wAf///////////4AP///////////8AH///////////+AD////////////AB////////////gA////////////wAf///////////4AP///////////8AH///////////+AD////////////AB////////////gA////////////wAf///////////4AP///////////8AH///////////+AD////////////AD////////////gB////////////wA////////////4Af///////////8AP///////////+AH////////////AD////////////gB////////////wA////////////4Af///////////8AP///////////+AH////////////AD///////////8AB///////////+AA////////////AAf///////////gAP///////////wAH///////////4AD///////////8AB///////////+AA////////////AAf///////////gAP///////////wAH///////////4AD///////////8AB///////////+AA////////////AAf///////////gAP///////////wAH///////////4AD///////////8AAAAAA///////+AAAAAAAP/4AP/wAAAAAAAH/8AH/4AAAAAAAD/8AAAAAAAAAAAAAAAAAAAAAA=="};                      // walkable map of the kitchen floor, 0.1 m cells
+const GX0 = 42, GZ0 = 36.5;                 // metres*10 + this = cell index
+const SPAWN = [0.75, 0.0];
+const PH = 1.75;                            // Remy's height in metres
+const $ = s => document.querySelector(s), clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+const setMsg = (t, p) => { $('#msg').textContent = t; if(p != null) $('#bar').style.width = Math.round(p*100) + '%'; };
+
+// ---- walkable grid ----
+const unpack = b64 => { const s = atob(b64), a = new Uint8Array(GRID.W*GRID.H); for(let i = 0; i < a.length; i++) a[i] = (s.charCodeAt(i>>3) >> (7 - (i&7))) & 1; return a; };
+const FREE = unpack(GRID.free), INSIDE = unpack(GRID.inside);
+const cell = (g, x, z) => { const i = Math.floor(x*10 + GX0), j = Math.floor(z*10 + GZ0); return (i >= 0 && j >= 0 && i < GRID.W && j < GRID.H) ? g[j*GRID.W + i] : 0; };
+
+// ---- cached downloads (the Remy file is big) ----
+const idb = {
+  open(){ return new Promise((res,rej) => { const r = indexedDB.open('kitchenlife',1); r.onupgradeneeded = () => r.result.createObjectStore('f'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  async get(k){ const db = await this.open(); return new Promise((res,rej) => { const q = db.transaction('f').objectStore('f').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
+  async set(k,v){ const db = await this.open(); return new Promise((res,rej) => { const t = db.transaction('f','readwrite'); t.objectStore('f').put(v,k); t.oncomplete = () => res(); t.onerror = () => rej(t.error); }); }
+};
+async function download(url, key, label, w0, w1){
+  try{ const c = await idb.get(key); if(c){ setMsg(label + ' (saved)', w1); return c; } }catch(_){}
+  const r = await fetch(url); if(!r.ok) throw new Error(label + ' HTTP ' + r.status);
+  const total = +r.headers.get('content-length') || 0, rd = r.body.getReader(), parts = []; let got = 0;
+  for(;;){ const {done, value} = await rd.read(); if(done) break; parts.push(value); got += value.length; setMsg(label + ' ' + Math.round(got/1048576) + ' MB', w0 + (w1-w0)*(total ? got/total : 0.5)); }
+  const buf = await new Blob(parts).arrayBuffer();
+  try{ await idb.set(key, buf); }catch(_){}
+  return buf;
+}
+
+// ---- renderer / scene ----
+const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1510);
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.05, 60);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.55;
+scene.add(new THREE.HemisphereLight(0xfff1dc, 0x6b5a48, 0.9));
+const sun = new THREE.DirectionalLight(0xfff0d8, 1.1); sun.position.set(3, 6, 2); scene.add(sun);
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); });
+$('#lm').onclick = () => renderer.toneMappingExposure = clamp(renderer.toneMappingExposure - 0.15, 0.4, 2.2);
+$('#lp').onclick = () => renderer.toneMappingExposure = clamp(renderer.toneMappingExposure + 0.15, 0.4, 2.2);
+
+// ---- kitchen ----
+function shrinkTex(root, lim){
+  root.traverse(o => { if(!o.isMesh) return; for(const m of (Array.isArray(o.material) ? o.material : [o.material])){ if(!m) continue;
+    for(const k of ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap']){ const t = m[k]; if(!t || !t.image || t.userData.s) continue; t.userData.s = 1;
+      const w = t.image.width, h = t.image.height; if(!w || w <= lim) continue;
+      const r = lim/Math.max(w,h), cv = document.createElement('canvas'); cv.width = Math.round(w*r); cv.height = Math.round(h*r);
+      cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height); t.image = cv; t.needsUpdate = true; }
+    m.needsUpdate = true; } });
+}
+async function loadKitchen(buf){
+  const gltf = await new GLTFLoader().parseAsync(buf, '');
+  const kit = gltf.scene; kit.scale.setScalar(0.1); kit.position.set(4.3, -1.456, -9.45);   // 1 unit = 10 cm, room centre at the origin, floor at y = 0
+  scene.add(kit); kit.updateMatrixWorld(true);
+  kit.traverse(o => { if(o.isMesh){ o.frustumCulled = true; const b = new THREE.Box3().setFromObject(o); if(b.min.y > 3.8) o.visible = false; } });   // hide the ceiling so the camera can see in
+  shrinkTex(kit, 1024);
+}
+
+// ---- cookware you can pick up ----
+const items = []; let held = null;
+async function loadWare(buf){
+  const gltf = await new GLTFLoader().parseAsync(buf, '');
+  shrinkTex(gltf.scene, 1024);
+  ORDER.forEach((n, i) => {
+    const o = gltf.scene.getObjectByName(n); if(!o) return;
+    const sp = SPOTS[i % SPOTS.length]; scene.add(o); o.position.set(sp.x, sp.y, sp.z); o.rotation.y = (i*1.7) % 6.28;
+    o.userData = {key:n, spot:i % SPOTS.length}; items.push(o);
+  });
+  baseCredits = (gltf.parser.json.asset.extras || {}).credits || []; renderCredits();
+}
+$('#ci').onclick = () => $('#cred').style.display = 'block';
+const actBtn = $('#act'); let nearItem = null, placing = false;
+// height map of everything you can put things on (floor, counters, island ...), 0.1 m cells, centimetres
+const HM = (() => { const s = atob(HMAP.d), a = new Uint8Array(HMAP.W*HMAP.H); for(let i = 0; i < a.length; i++) a[i] = s.charCodeAt(i); return a; })();
+function surface(x, z){                                       // height of the surface under (x, z), or null if nothing to stand it on
+  const i = Math.floor(x*10 + GX0), j = Math.floor(z*10 + GZ0);
+  if(i < 1 || j < 1 || i >= HMAP.W-1 || j >= HMAP.H-1 || HM[j*HMAP.W + i] === 255) return null;
+  let m = 0; for(let a = -1; a <= 1; a++) for(let b = -1; b <= 1; b++){ const v = HM[(j+b)*HMAP.W + i + a]; if(v !== 255 && v > m) m = v; }
+  return m/100;
+}
+const off = {f:0.75, r:0};                                      // where the item floats, relative to Remy, in the camera's directions
+const pp = $('#pp'); let canPut = false;
+function placePos(){
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), rx = -Math.cos(P.yaw), rz = Math.sin(P.yaw);
+  return {x: P.x + fx*off.f + rx*off.r, z: P.z + fz*off.f + rz*off.r};
+}
+function updatePlace(){
+  const p = placePos(), h = surface(p.x, p.z); canPut = h != null;
+  held.position.set(p.x, h != null ? h : (held.position.y || 1), p.z);
+  held.visible = true;
+  $('#pok').style.opacity = canPut ? 1 : 0.45; $('#pok').textContent = canPut ? '✔ Put down here' : 'Nothing to put it on here';
+}
+function updateAct(){
+  if(placing){ actBtn.style.display = 'none'; pp.style.display = 'flex'; return; }
+  pp.style.display = 'none';
+  if(held){ nearItem = null; actBtn.textContent = 'Place ' + lab(held) + '  [E]'; actBtn.style.display = 'block'; return; }
+  let best = null, bd = 1.35;
+  for(const o of items){ if(o.userData.heldBy) continue; const d = Math.hypot(o.position.x - P.x, o.position.z - P.z); if(d < bd){ bd = d; best = o; } }
+  nearItem = best;
+  if(best){ actBtn.textContent = 'Pick up ' + lab(best) + '  [E]'; actBtn.style.display = 'block'; } else actBtn.style.display = 'none';
+}
+function act(){
+  if(placing) return;
+  if(held){ placing = true; off.f = 0.75; off.r = 0; updatePlace(); }
+  else if(nearItem){ held = nearItem; held.userData.heldBy = 'me'; }
+  updateAct();
+}
+$('#pok').onclick = () => { if(placing && canPut){ placing = false; held.userData.heldBy = null; held = null; updateAct(); } };
+$('#pcancel').onclick = () => { placing = false; updateAct(); };
+$('#prl').onclick = () => { if(held) held.rotation.y += Math.PI/12; };
+$('#prr').onclick = () => { if(held) held.rotation.y -= Math.PI/12; };
+for(const id of ['#pok','#pcancel','#prl','#prr']) $(id).addEventListener('pointerdown', e => e.stopPropagation());
+actBtn.addEventListener('pointerdown', e => { e.stopPropagation(); act(); });
+addEventListener('keydown', e => { if(document.activeElement && document.activeElement.tagName === 'INPUT') return; if(e.code === 'KeyE'){ if(placing){ $('#pok').click(); } else act(); } if(placing && e.code === 'KeyQ') held.rotation.y += 0.26; if(placing && e.code === 'KeyR') held.rotation.y -= 0.26; });
+const _hv = new THREE.Vector3();
+function carry(){
+  if(!held || !R.bones || !R.bones.RightHand) return;
+  if(placing){ updatePlace(); return; }
+  R.bones.RightHand.getWorldPosition(_hv);
+  held.position.set(_hv.x + Math.sin(P.h)*0.1, _hv.y - 0.06, _hv.z + Math.cos(P.h)*0.1); held.rotation.y = P.h;
+}
+
+// ---- Remy ----
+const R = {model:null, holder:null, mixer:null, act:{}, cur:null};
+const pg = new THREE.Group(); scene.add(pg);
+function fixMaterials(mesh){
+  for(const m of (Array.isArray(mesh.material) ? mesh.material : [mesh.material])){ if(!m) continue;
+    const cut = /hair|lash/i.test(m.name || '') || /hair|lash/i.test(mesh.name || '');
+    if(m.specularMap){ m.specularMap.dispose?.(); m.specularMap = null; } if(m.specular) m.specular.set(0x161616); m.shininess = 18;
+    if(m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+    if(cut){ m.transparent = false; m.alphaTest = 0.35; m.depthWrite = true; m.side = THREE.DoubleSide; } else { m.transparent = false; m.opacity = 1; m.alphaMap = null; m.alphaTest = 0; }
+    m.needsUpdate = true; }
+  mesh.frustumCulled = false;
+}
+async function loadClips(){
+  const mk = j => new THREE.AnimationClip(j.name, j.duration, j.tracks.map(t => t.k === 'q' ? new THREE.QuaternionKeyframeTrack(t.n, t.t, t.v) : new THREE.VectorKeyframeTrack(t.n, t.t, t.v)));
+  const out = {};
+  await Promise.all(CLIPS.map(async n => { const r = await fetch(`${ASSET_BASE}/_cdn/static/anim-${n}.json`); if(!r.ok) throw new Error('animation ' + n + ' HTTP ' + r.status); out[n] = mk(await r.json()); }));
+  return out;
+}
+async function loadRemy(buf){
+  const model = new FBXLoader().parse(buf, ''), bones = {};
+  model.traverse(o => { if(o.isMesh) fixMaterials(o); if(o.isBone) bones[o.name.replace(/^mixamorig:?/, '')] = o; });
+  if(!bones.Hips) throw new Error('character has no Mixamo skeleton');
+  shrinkTex(model, 1024);
+  const holder = new THREE.Group(); holder.add(model); pg.add(holder);
+  const clips = await loadClips(), mixer = new THREE.AnimationMixer(model), act = {};
+  for(const [n, c] of Object.entries(clips)) act[n] = mixer.clipAction(c);
+  act.idle.play(); R.cur = act.idle; mixer.update(0);
+  pg.updateMatrixWorld(true); model.traverse(o => { if(o.isSkinnedMesh) o.skeleton.update(); });
+  const box = new THREE.Box3().setFromObject(model, true), rawH = Math.max(1e-3, box.max.y - box.min.y), s = PH/rawH;
+  holder.scale.setScalar(s); holder.position.y = -box.min.y*s; pg.updateMatrixWorld(true);
+  const wp = b => b.getWorldPosition(new THREE.Vector3()), l = wp(bones.LeftUpLeg).sub(wp(bones.RightUpLeg));
+  holder.rotation.y = Math.atan2(l.z, l.x);                     // square the hips to the walking direction
+  Object.assign(R, {model, holder, mixer, act, bones});
+}
+function play(name, fade, rate){
+  const a = R.act[name]; if(!a) return;
+  a.timeScale = rate || 1;
+  if(R.cur === a) return;
+  a.reset(); a.enabled = true; a.setEffectiveWeight(1); if(R.cur) a.crossFadeFrom(R.cur, fade, false); a.play(); R.cur = a;
+}
+
+// ---- controls ----
+const P = {x:SPAWN[0], z:SPAWN[1], h:0, yaw:0, pitch:0.28, sp:0};
+const keys = {}, js = {x:0, y:0, id:null};
+addEventListener('keydown', e => { if(document.activeElement && document.activeElement.tagName === 'INPUT') return; keys[e.code] = true; });
+ addEventListener('keyup', e => keys[e.code] = false);
+const joy = $('#joy'), knob = joy.firstElementChild, touch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+if(touch) joy.style.display = 'block';
+function joyMove(e){ const r = joy.getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height/2; let dx = e.clientX - cx, dy = e.clientY - cy; const m = r.width/2, d = Math.hypot(dx, dy);
+  if(d > m){ dx *= m/d; dy *= m/d; } js.x = dx/m; js.y = -dy/m; knob.style.transform = `translate(${dx}px,${dy}px)`; }
+joy.addEventListener('pointerdown', e => { js.id = e.pointerId; joy.setPointerCapture(e.pointerId); joyMove(e); });
+joy.addEventListener('pointermove', e => { if(e.pointerId === js.id) joyMove(e); });
+const joyEnd = e => { if(e.pointerId !== js.id) return; js.id = null; js.x = js.y = 0; knob.style.transform = ''; };
+joy.addEventListener('pointerup', joyEnd); joy.addEventListener('pointercancel', joyEnd);
+let drag = null;                                                // drag anywhere else to look around
+renderer.domElement.addEventListener('pointerdown', e => { drag = {id:e.pointerId, x:e.clientX, y:e.clientY}; });
+addEventListener('pointermove', e => { if(!drag || e.pointerId !== drag.id) return;
+  if(placing && held){ off.r += (e.clientX - drag.x)*0.004; off.f -= (e.clientY - drag.y)*0.004; const d = Math.hypot(off.f, off.r); if(d > 1.5){ off.f *= 1.5/d; off.r *= 1.5/d; } if(d < 0.3){ off.f *= 0.3/Math.max(d,1e-3); off.r *= 0.3/Math.max(d,1e-3); } drag.x = e.clientX; drag.y = e.clientY; return; }
+  P.yaw -= (e.clientX - drag.x)*0.006; P.pitch = clamp(P.pitch + (e.clientY - drag.y)*0.004, 0.05, 0.8); drag.x = e.clientX; drag.y = e.clientY; });
+addEventListener('pointerup', e => { if(drag && e.pointerId === drag.id) drag = null; });
+
+function step(dt){
+  let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + js.x;
+  let iy = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + js.y;
+  const mag = Math.min(1, Math.hypot(ix, iy));
+  if(mag > 0.3 && playerAgent.path.length) cancelPlan(playerAgent);
+  if(agentTick(playerAgent, dt)) P.sp = playerAgent.speed;
+  else if(mag > 0.08){
+    const run = keys.ShiftLeft || keys.ShiftRight || mag > 0.92 && js.id != null;
+    const speed = (run ? 3.4 : 1.5) * (js.id != null ? Math.max(0.45, mag) : 1);
+    const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), rx = -Math.cos(P.yaw), rz = Math.sin(P.yaw);
+    let dx = fx*iy + rx*ix, dz = fz*iy + rz*ix; const l = Math.hypot(dx, dz); dx /= l; dz /= l;
+    const nx = P.x + dx*speed*dt, nz = P.z + dz*speed*dt;
+    if(cell(FREE, nx, nz)){ P.x = nx; P.z = nz; }                // furniture and walls block you; sliding along them
+    else if(cell(FREE, nx, P.z)) P.x = nx;
+    else if(cell(FREE, P.x, nz)) P.z = nz;
+    const target = Math.atan2(dx, dz); let d = target - P.h; d = Math.atan2(Math.sin(d), Math.cos(d)); P.h += d*Math.min(1, dt*12);
+    P.sp = speed;
+  } else P.sp = 0;
+  pg.position.set(P.x, 0, P.z); pg.rotation.y = P.h;
+  if(R.mixer){
+    if(P.sp > 2.4) play('run', 0.2, clamp(P.sp/3.6, 0.8, 1.2));
+    else if(P.sp > 0.1) play('walk', 0.2, clamp(P.sp/1.5, 0.6, 1.5));
+    else play('idle', 0.25, 1);
+    R.mixer.update(dt);
+    pg.updateMatrixWorld(true); R.model.traverse(o => { if(o.isSkinnedMesh) o.skeleton.update(); });
+  }
+  carry(); chefUpdate(dt); updateAct();
+  // follow camera; slides in when a wall is behind you
+  const tx = P.x, ty = 1.35, tz = P.z; let dist = 3.0;
+  const ch = Math.cos(P.pitch), sh = Math.sin(P.pitch);
+  for(; dist > 0.5; dist -= 0.15){ const cx = tx - Math.sin(P.yaw)*ch*dist, cz = tz - Math.cos(P.yaw)*ch*dist; if(cell(INSIDE, cx, cz)) break; }
+  camera.position.set(tx - Math.sin(P.yaw)*ch*dist, ty + sh*dist + 0.35, tz - Math.cos(P.yaw)*ch*dist);
+  camera.lookAt(tx, ty, tz);
+}
+
+// ---- AI: a chef character and a command box, both driven by the backend "brain" ----
+const API = ASSET_BASE + '/_api/kitchen/';
+const WORLD = {x0:-3.3, x1:3.9, z0:-3.3, z1:3.0};
+let baseCredits = [], extraCredits = [], aiN = 0, lastFetchAt = 0, fetchCount = 0;
+const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function renderCredits(){
+  const all = baseCredits.concat(extraCredits);
+  $('#cred').innerHTML = '<h3>Credits</h3>' + all.map(c => `<p><b>${esc(c.item)}</b>: ${esc(c.title || '')} by ${esc((c.author || '').replace(/ \(.*$/, ''))}<br>${esc((c.license || '').replace(/ \(.*$/, ''))} · <a href="${esc(c.source || '#')}" target="_blank" rel="noopener">source</a></p>`).join('') + '<button id="cx">Close</button>';
+  $('#cx').onclick = () => $('#cred').style.display = 'none';
+}
+const lab = o => NICE[o.userData.key] || o.userData.name || 'item';
+const aiLog = t => { const L = $('#ailog'); if(!L) return; const d = document.createElement('div'); d.textContent = t; L.appendChild(d); while(L.children.length > 7) L.firstChild.remove(); L.scrollTop = L.scrollHeight; };
+
+// --- walking on the floor map (A* over the free cells) ---
+const GW = GRID.W, GH = GRID.H, cellOf = (x, z) => [Math.floor(x*10 + GX0), Math.floor(z*10 + GZ0)], centre = (i, j) => [(i + 0.5 - GX0)/10, (j + 0.5 - GZ0)/10];
+const isFree = (i, j) => i >= 0 && j >= 0 && i < GW && j < GH && FREE[j*GW + i] === 1;
+function nearestFree(x, z, maxR = 25){
+  const [ci, cj] = cellOf(x, z); let best = null, bd = 1e9;
+  for(let r = 0; r <= maxR; r++){
+    for(let a = -r; a <= r; a++) for(let b = -r; b <= r; b++){ if(Math.max(Math.abs(a), Math.abs(b)) !== r) continue; if(!isFree(ci + a, cj + b)) continue; const d = a*a + b*b; if(d < bd){ bd = d; best = [ci + a, cj + b]; } }
+    if(best) break;
+  }
+  return best;
+}
+function los(a, b){ let [x0, y0] = a; const [x1, y1] = b, dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx - dy;
+  for(;;){ if(!isFree(x0, y0)) return false; if(x0 === x1 && y0 === y1) return true; const e2 = 2*e; if(e2 > -dy){ e -= dy; x0 += sx; } if(e2 < dx){ e += dx; y0 += sy; } } }
+function findPath(fx, fz, tx, tz){
+  const s = nearestFree(fx, fz, 6), g = nearestFree(tx, tz); if(!s || !g) return [];
+  const key = (i, j) => j*GW + i, open = [[s[0], s[1]]], gs = new Map([[key(...s), 0]]), from = new Map(), closed = new Set();
+  const h = (i, j) => { const dx = Math.abs(i - g[0]), dy = Math.abs(j - g[1]); return Math.max(dx, dy) + 0.41*Math.min(dx, dy); };
+  const fs = new Map([[key(...s), h(...s)]]); let found = false, guard = 0;
+  while(open.length && guard++ < 20000){
+    let bi = 0; for(let k = 1; k < open.length; k++) if(fs.get(key(...open[k])) < fs.get(key(...open[bi]))) bi = k;
+    const [ci, cj] = open.splice(bi, 1)[0], ck = key(ci, cj); if(closed.has(ck)) continue; closed.add(ck);
+    if(ci === g[0] && cj === g[1]){ found = true; break; }
+    for(let a = -1; a <= 1; a++) for(let b = -1; b <= 1; b++){
+      if(!a && !b) continue; const ni = ci + a, nj = cj + b; if(!isFree(ni, nj) || (a && b && (!isFree(ci + a, cj) || !isFree(ci, cj + b)))) continue;
+      const nk = key(ni, nj), ng = gs.get(ck) + (a && b ? 1.41 : 1); if(ng < (gs.get(nk) ?? 1e9)){ gs.set(nk, ng); from.set(nk, ck); fs.set(nk, ng + h(ni, nj)); open.push([ni, nj]); }
+    }
+  }
+  if(!found) return [];
+  let cells = [], k = key(...g); while(k !== undefined){ cells.push([k % GW, Math.floor(k / GW)]); k = from.get(k); } cells.reverse();
+  const pts = [cells[0]]; let anchor = 0;                                   // straighten the path where the way is clear
+  for(let i = 2; i < cells.length; i++){ if(!los(cells[anchor], cells[i])){ pts.push(cells[i - 1]); anchor = i - 1; } }
+  pts.push(cells[cells.length - 1]);
+  return pts.slice(1).map(c => { const [x, z] = centre(c[0], c[1]); return {x, z}; });
+}
+
+// --- agents: the player's Remy (when the AI drives it) and the AI chef share the same code ---
+const playerAgent = {id:'me', label:'You', path:[], resolve:null, token:0, speed:1.5,
+  get x(){ return P.x; }, set x(v){ P.x = v; }, get z(){ return P.z; }, set z(v){ P.z = v; }, get h(){ return P.h; }, set h(v){ P.h = v; },
+  get held(){ return held; }, set held(v){ held = v; }};
+const chef = {id:'chef', label:'AI Chef', path:[], resolve:null, token:0, speed:1.4, x:1.8, z:-0.3, h:0, held:null, g:null, mixer:null, act:{}, cur:null, bones:{}, busy:false, bubbleUntil:0};
+const aiOn = {auto:false, lastThink:0, calls:0};
+function cancelPlan(a){ a.token++; a.path = []; if(a.resolve){ const r = a.resolve; a.resolve = null; r(); } a.busy = false; }
+function agentTick(a, dt){
+  if(!a.path.length) return false;
+  const t = a.path[0], dx = t.x - a.x, dz = t.z - a.z, d = Math.hypot(dx, dz), st = a.speed*dt;
+  if(d <= st){ a.x = t.x; a.z = t.z; a.path.shift(); if(!a.path.length && a.resolve){ const r = a.resolve; a.resolve = null; r(); } }
+  else { a.x += dx/d*st; a.z += dz/d*st; }
+  if(d > 0.01){ let dh = Math.atan2(dx, dz) - a.h; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); a.h += dh*Math.min(1, dt*10); }
+  return true;
+}
+function walkTo(a, x, z){
+  const p = findPath(a.x, a.z, x, z); if(!p.length) return Promise.resolve();
+  a.path = p; return new Promise(res => { a.resolve = res; });
+}
+const face = (a, x, z) => { a.h = Math.atan2(x - a.x, z - a.z); };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// --- making the chef: a clone of Remy with a hat ---
+function makeChef(){
+  if(!R.model || chef.g) return;
+  const model = SkeletonUtils.clone(R.model), g = new THREE.Group(), holder = new THREE.Group();
+  holder.add(model); holder.scale.copy(R.holder.scale); holder.position.copy(R.holder.position); holder.rotation.copy(R.holder.rotation); g.add(holder);
+  model.traverse(o => { if(o.isMesh){ o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone(); } if(o.isBone) chef.bones[o.name.replace(/^mixamorig:?/, '')] = o; });
+  const hat = new THREE.Group(), white = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.8});
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.115, 0.07, 20), white), top = new THREE.Mesh(new THREE.SphereGeometry(0.15, 20, 14), white);
+  band.position.y = 0.035; top.scale.y = 0.8; top.position.y = 0.17; hat.add(band, top); hat.position.y = 1.7; g.add(hat);
+  const mixer = new THREE.AnimationMixer(model);
+  for(const n of ['idle','walk','run']) if(R.act[n]) chef.act[n] = mixer.clipAction(R.act[n].getClip());
+  chef.act.idle && chef.act.idle.play(); chef.cur = chef.act.idle || null; chef.mixer = mixer; chef.g = g;
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64; const cx = c.getContext('2d'); cx.fillStyle = '#000a'; cx.roundRect ? cx.roundRect(4, 8, 248, 48, 20) : cx.rect(4, 8, 248, 48); cx.fill();
+  cx.fillStyle = '#fff'; cx.font = 'bold 28px system-ui'; cx.textAlign = 'center'; cx.fillText('AI Chef', 128, 42);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), depthTest:false, transparent:true})); spr.scale.set(0.5, 0.125, 1); spr.position.y = 2.15; spr.renderOrder = 20; g.add(spr);
+  const f = nearestFree(1.8, -0.3); if(f){ [chef.x, chef.z] = centre(f[0], f[1]); }
+  scene.add(g); g.position.set(chef.x, 0, chef.z);
+}
+function chefPlay(name, rate){ const a = chef.act[name]; if(!a) return; a.timeScale = rate || 1; if(chef.cur === a) return; a.reset(); a.enabled = true; a.setEffectiveWeight(1); if(chef.cur) a.crossFadeFrom(chef.cur, 0.2, false); a.play(); chef.cur = a; }
+const _cv = new THREE.Vector3(), bub = $('#bub');
+function chefUpdate(dt){
+  if(!chef.g) return;
+  const moving = agentTick(chef, dt);
+  if(moving) chefPlay('walk', 1); else chefPlay('idle', 1);
+  chef.mixer.update(dt);
+  chef.g.position.set(chef.x, 0, chef.z); chef.g.rotation.y = chef.h; chef.g.updateMatrixWorld(true);
+  chef.g.traverse(o => { if(o.isSkinnedMesh) o.skeleton.update(); });
+  if(chef.held && chef.bones.RightHand){ chef.bones.RightHand.getWorldPosition(_cv); chef.held.position.set(_cv.x + Math.sin(chef.h)*0.1, _cv.y - 0.06, _cv.z + Math.cos(chef.h)*0.1); chef.held.rotation.y = chef.h; }
+  if(performance.now() < chef.bubbleUntil){ _cv.set(chef.x, 2.35, chef.z).project(camera); if(_cv.z < 1){ bub.style.display = 'block'; bub.style.left = ((_cv.x*0.5 + 0.5)*innerWidth) + 'px'; bub.style.top = ((-_cv.y*0.5 + 0.5)*innerHeight) + 'px'; } else bub.style.display = 'none'; } else bub.style.display = 'none';
+  autoTick();
+}
+function speak(a, text){ aiLog((a.id === 'chef' ? 'Chef: ' : 'You: ') + text); if(a.id === 'chef'){ bub.textContent = text; chef.bubbleUntil = performance.now() + 4500; } else say(text, 3); }
+
+// --- reading the room for the brain ---
+function mapText(){
+  const rows = [];
+  for(let z = WORLD.z0; z <= WORLD.z1 + 1e-6; z += 0.5){
+    let row = '';
+    for(let x = WORLD.x0; x <= WORLD.x1 + 1e-6; x += 0.5){ const h = surface(x, z); const [i, j] = cellOf(x, z); row += (h != null && h >= 0.8 && h <= 1.4) ? 'C' : (isFree(i, j) ? '.' : '#'); }
+    rows.push(row);
+  }
+  return rows.join('\n');
+}
+const r2 = v => Math.round(v*100)/100;
+async function api(path, body){
+  try{ const r = await fetch(API + path, {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(body)}); return await r.json(); }
+  catch(e){ return {error:'Could not reach the server.'}; }
+}
+async function think(a, goal){
+  if(a.busy) return;
+  a.busy = true; const tok = ++a.token; aiOn.lastThink = performance.now(); aiOn.calls++;
+  aiLog((a.id === 'chef' ? 'Chef' : 'You') + ' is thinking…');
+  const res = await api('brain', {role:a.id === 'chef' ? 'chef' : 'player', goal:goal.slice(0, 240), me:{x:r2(a.x), z:r2(a.z)}, held:a.held ? a.held.userData.key : null,
+    items:items.map(o => ({k:o.userData.key, name:(o.userData.name || NICE[o.userData.key] || 'item').slice(0, 40), x:r2(o.position.x), y:r2(o.position.y), z:r2(o.position.z)})).slice(0, 40), map:mapText()});
+  if(tok !== a.token){ return; }
+  if(!res || res.error){ aiLog('⚠ ' + ((res && res.error) || 'no answer')); a.busy = false; return; }
+  if(res.say) speak(a, res.say);
+  await runPlan(a, res.actions || [], tok);
+  if(tok === a.token) a.busy = false;
+}
+function snapTarget(x, z){
+  const [ci, cj] = cellOf(x, z); let best = null, bs = 1e9;
+  for(let a = -15; a <= 15; a++) for(let b = -15; b <= 15; b++){
+    const px = (ci + a + 0.5 - GX0)/10, pz = (cj + b + 0.5 - GZ0)/10, h = surface(px, pz); if(h == null) continue;
+    const taken = items.some(o => !o.userData.heldBy && Math.hypot(o.position.x - px, o.position.z - pz) < 0.28);
+    const s = Math.hypot(a, b) + (taken ? 12 : 0) + (h >= 0.8 && h <= 1.4 ? 0 : 6); if(s < bs){ bs = s; best = {x:px, z:pz, y:h}; }
+  }
+  return best;
+}
+async function loadModel(r){
+  const url = r.url.startsWith('/') ? ASSET_BASE + r.url : r.url, buf = await (await fetch(url)).arrayBuffer();
+  const gltf = await new GLTFLoader().parseAsync(buf, ''), inner = gltf.scene, wrap = new THREE.Group();
+  shrinkTex(inner, 512); wrap.add(inner); wrap.updateMatrixWorld(true);
+  return {wrap, inner};
+}
+async function runPlan(a, actions, tok){
+  for(const act of actions){
+    if(tok !== a.token) return;
+    try{
+      if(act.do === 'say') speak(a, act.text);
+      else if(act.do === 'wait') await sleep(act.s*1000);
+      else if(act.do === 'goto') await walkTo(a, act.x, act.z);
+      else if(act.do === 'pick'){
+        if(a.held){ speak(a, 'My hands are full.'); continue; }
+        const key = String(act.item).toLowerCase(), it = items.find(o => !o.userData.heldBy && (o.userData.key === key || (o.userData.name || '').toLowerCase().includes(key) || (NICE[o.userData.key] || '').includes(key)));
+        if(!it){ speak(a, "I can't find that."); continue; }
+        await walkTo(a, it.position.x, it.position.z); if(tok !== a.token) return;
+        face(a, it.position.x, it.position.z); await sleep(350); if(tok !== a.token) return;
+        it.userData.heldBy = a.id; a.held = it;
+      } else if(act.do === 'place'){
+        if(!a.held){ speak(a, 'I need to pick something up first.'); continue; }
+        const t = snapTarget(act.x, act.z); if(!t){ speak(a, 'There is nowhere to put it there.'); continue; }
+        await walkTo(a, t.x, t.z); if(tok !== a.token) return;
+        face(a, t.x, t.z); await sleep(350); if(tok !== a.token) return;
+        const it = a.held; it.position.set(t.x, t.y, t.z); it.rotation.y = (act.rot || 0)*Math.PI/180; it.userData.heldBy = null; a.held = null;
+      } else if(act.do === 'fetch'){
+        if(fetchCount >= 6 || performance.now() - lastFetchAt < 20000){ speak(a, "I'll fetch that a bit later."); continue; }
+        const t = snapTarget(act.x, act.z); if(!t) continue;
+        lastFetchAt = performance.now(); fetchCount++; speak(a, 'Looking for a ' + act.q + '…');
+        const res = await api('model', {q:act.q}); if(tok !== a.token) return;
+        if(res.error){ speak(a, "Couldn't get one: " + res.error); continue; }
+        await walkTo(a, t.x, t.z); if(tok !== a.token) return;
+        const {wrap, inner} = await loadModel(res); if(tok !== a.token) return;
+        const bx = new THREE.Box3().setFromObject(wrap), sz = bx.getSize(new THREE.Vector3()), k = act.size/Math.max(sz.x, sz.y, sz.z, 1e-3);
+        inner.scale.multiplyScalar(k); wrap.updateMatrixWorld(true);
+        const b2 = new THREE.Box3().setFromObject(wrap), c2 = b2.getCenter(new THREE.Vector3()); inner.position.x -= c2.x; inner.position.z -= c2.z; inner.position.y -= b2.min.y;
+        wrap.position.set(t.x, t.y, t.z); wrap.userData = {key:'ai_' + (++aiN), name:String(res.name || act.q).slice(0, 28), heldBy:null};
+        wrap.scale.setScalar(0.01); scene.add(wrap); items.push(wrap);
+        extraCredits.push({item:wrap.userData.name, title:res.name, author:res.author, license:res.license, source:res.source}); renderCredits();
+        for(let s = 0; s <= 10; s++){ wrap.scale.setScalar(Math.max(0.01, s/10)); await sleep(30); }
+        speak(a, 'Here is a ' + wrap.userData.name + '.');
+      }
+    }catch(e){ console.warn('plan step failed', e); aiLog('⚠ something went wrong'); return; }
+  }
+}
+// --- panel ---
+const aiPanel = $('#ai'); let aiTarget = 'chef';
+$('#ab').onclick = () => { aiPanel.style.display = aiPanel.style.display === 'block' ? 'none' : 'block'; };
+document.querySelectorAll('#ai .tg button').forEach(b => b.onclick = () => { aiTarget = b.dataset.t; document.querySelectorAll('#ai .tg button').forEach(x => x.classList.toggle('on', x === b)); });
+$('#aigo').onclick = () => { const v = $('#aiin').value.trim(); if(!v) return; $('#aiin').value = ''; aiLog('→ ' + v);
+  if(aiTarget === 'chef'){ cancelPlan(chef); think(chef, v); } else { if(placing){ placing = false; updateAct(); } cancelPlan(playerAgent); think(playerAgent, v); } };
+$('#aiin').addEventListener('keydown', e => { e.stopPropagation(); if(e.key === 'Enter') $('#aigo').click(); });
+$('#aiin').addEventListener('keyup', e => e.stopPropagation());
+$('#aiauto').onchange = e => { aiOn.auto = e.target.checked; aiLog(aiOn.auto ? 'Auto chef is on.' : 'Auto chef is off.'); aiOn.lastThink = performance.now(); };
+function autoTick(){
+  if(!aiOn.auto || chef.busy || chef.path.length || aiOn.calls > 30) return;
+  if(performance.now() - aiOn.lastThink < 25000) return;
+  think(chef, 'Make the kitchen ready for cooking. Put loose cookware where a cook would want it on the counters, keeping the counters tidy. If something a cook clearly needs is missing (an ingredient, an appliance, a stool), fetch ONE small free model for it.');
+}
+
+// ---- start ----
+let last = performance.now();
+function frame(now){ const dt = Math.min(0.05, (now - last)/1000); last = now; step(dt); renderer.render(scene, camera); requestAnimationFrame(frame); }
+(async () => {
+  try{
+    const kb = await download(KITCHEN_URL, 'kitchen-v1', 'Kitchen', 0, 0.35);
+    await loadKitchen(kb);
+    try{ const wb = await download(KW_URL, 'ware-v1', 'Cookware', 0.35, 0.5); await loadWare(wb); }catch(e){ console.warn('cookware', e); }
+    const cb = await download(CHAR_URL, 'remy-v1', 'Remy', 0.5, 0.9);
+    setMsg('Getting ready…', 0.95); await loadRemy(cb); makeChef();
+    step(0.001); try{ await renderer.compileAsync(scene, camera); }catch(_){} renderer.render(scene, camera);
+    setMsg('Ready', 1); const L = $('#load'); L.style.opacity = 0; setTimeout(() => L.remove(), 700);
+    requestAnimationFrame(frame);
+  }catch(e){ console.error(e); setMsg('Could not load: ' + (e.message || e), 0); }
+})();
+</script>
+</body></html>
